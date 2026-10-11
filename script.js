@@ -96,39 +96,66 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
   });
 });
 
-/* --- RENDER PUBLIC REVIEWS ON PAGE --- */
-function renderPublicReviews() {
+/* --- RENDER PUBLIC REVIEWS ON PAGE (FIREBASE VERSION) --- */
+async function renderPublicReviews() {
   const container = document.getElementById('publicReviewsList');
   if (!container) return;
-  
-  const feedbacks = JSON.parse(localStorage.getItem('portfolioFeedbacks') || '[]');
-  
-  if (feedbacks.length === 0) {
-    container.innerHTML = '<p class="no-reviews-msg">No reviews yet. Be the first to leave one!</p>';
+
+  if (!window.firebaseDB) {
+    console.log('Firebase not ready yet...');
     return;
   }
-  
-  container.innerHTML = '';
-  // Show newest first, limit to 6 for clean layout
-  feedbacks.slice().reverse().slice(0, 6).forEach(fb => {
-    const starsHtml = '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating);
-    const card = document.createElement('div');
-    card.className = 'public-review-card';
-    card.innerHTML = `
-      <div class="public-review-top">
-        <span class="public-review-name">${fb.username}</span>
-        <span class="public-review-stars">${starsHtml}</span>
-      </div>
-      <p class="public-review-msg">"${fb.message}"</p>
-    `;
-    container.appendChild(card);
-  });
+
+  const { collection, getDocs, query, orderBy, limit, db } = window.firebaseDB;
+
+  try {
+    const q = query(collection(db, "feedback"), orderBy("date", "desc"), limit(6));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      container.innerHTML = '<p class="no-reviews-msg">No reviews yet. Be the first to leave one!</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    querySnapshot.forEach((doc) => {
+      const fb = doc.data();
+      const starsHtml = '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating);
+      
+      // Gumagawa ng avatar base sa pangalan ng user
+      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fb.username)}&background=random&color=fff&size=128`;
+
+      const card = document.createElement('div');
+      card.className = 'public-review-card';
+      card.innerHTML = `
+        <div class="public-review-avatar">
+          <img src="${avatarUrl}" alt="${fb.username}" onerror="this.style.display='none'">
+        </div>
+        <div class="public-review-content">
+          <div class="public-review-header">
+            <span class="public-review-name">${fb.username}</span>
+            <span class="public-review-stars">${starsHtml}</span>
+          </div>
+          <p class="public-review-msg">"${fb.message}"</p>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    console.error('Error fetching reviews: ', err);
+    container.innerHTML = '<p class="no-reviews-msg">Could not load reviews right now.</p>';
+  }
 }
 
-// Call it when the page first loads
-document.addEventListener('DOMContentLoaded', renderPublicReviews);
+// MAHALAGANG FIX: Hintayin na maging ready ang Firebase bago i-render
+const waitForFirebase = setInterval(() => {
+  if (window.firebaseDB) {
+    clearInterval(waitForFirebase);
+    renderPublicReviews();
+  }
+}, 100);
 
-/* --- RATING AND FEEDBACK SIDEBAR LOGIC --- */
+/* --- RATING LOGIC --- */
 (function(){
   const stars = document.querySelectorAll('.star');
   const ratingInput = document.getElementById('cRating');
@@ -142,88 +169,16 @@ document.addEventListener('DOMContentLoaded', renderPublicReviews);
       });
     });
   });
-
-  const sidebar = document.getElementById('feedbackSidebar');
-  const openBtn = document.getElementById('openSidebarBtn');
-  const closeBtn = document.getElementById('closeSidebarBtn');
-  const switchBtn = document.getElementById('switchSideBtn');
-  const fbList = document.getElementById('fbList');
-
-  if(!sidebar || !openBtn || !closeBtn) return;
-
-  function loadFeedback() {
-    const feedbacks = JSON.parse(localStorage.getItem('portfolioFeedbacks') || '[]');
-    if (feedbacks.length === 0) {
-      fbList.innerHTML = '<p class="no-fb">No feedback yet. Be the first to leave one!</p>';
-      return;
-    }
-    fbList.innerHTML = '';
-    feedbacks.slice().reverse().forEach(fb => {
-      const item = document.createElement('div');
-      item.className = 'fb-item';
-      const starsHtml = '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating);
-      item.innerHTML = `
-        <div class="fb-top">
-          <strong>${fb.username}</strong>
-          <span class="fb-stars">${starsHtml}</span>
-        </div>
-        <p class="fb-msg">${fb.message}</p>
-      `;
-      fbList.appendChild(item);
-    });
-  }
-
-  openBtn.addEventListener('click', () => {
-    sidebar.classList.add('open');
-    document.body.classList.add('sidebar-open');
-    if (sidebar.classList.contains('left')) {
-      document.body.classList.add('sidebar-left');
-    } else {
-      document.body.classList.add('sidebar-right');
-    }
-    loadFeedback();
-  });
-
-  closeBtn.addEventListener('click', () => {
-    sidebar.classList.remove('open');
-    document.body.classList.remove('sidebar-open', 'sidebar-left', 'sidebar-right');
-  });
-
-  switchBtn.addEventListener('click', () => {
-    sidebar.classList.toggle('left');
-    if (sidebar.classList.contains('left')) {
-      openBtn.style.right = 'auto';
-      openBtn.style.left = '36px';
-      if (sidebar.classList.contains('open')) {
-        document.body.classList.remove('sidebar-right');
-        document.body.classList.add('sidebar-left');
-      }
-    } else {
-      openBtn.style.left = 'auto';
-      openBtn.style.right = '36px';
-      if (sidebar.classList.contains('open')) {
-        document.body.classList.remove('sidebar-left');
-        document.body.classList.add('sidebar-right');
-      }
-    }
-  });
-
-  loadFeedback();
 })();
 
-/* --- CONTACT FORM SUBMISSION --- */
+/* --- CONTACT FORM SUBMISSION (FIREBASE) --- */
 (function(){
   const form = document.getElementById('contactForm');
   if (!form) return;
 
-  const FEEDBACK_ENDPOINT   = 'https://api.web3forms.com/submit';
-  const FEEDBACK_ACCESS_KEY = 'e28ddd98-a11d-4068-a9b6-f77c1c586d50'; // Your Key Added Here
-  const FALLBACK_EMAIL      = 'raphaelmvigafria@gmail.com';
-
   const btn    = document.getElementById('contactSubmit');
   const status = document.getElementById('formStatus');
   const btnLabel = btn ? btn.textContent : '';
-  const configured = /^[0-9a-f-]{20,}$/i.test(FEEDBACK_ACCESS_KEY);
 
   function setStatus(msg, kind){
     if (!status) return;
@@ -234,13 +189,6 @@ document.addEventListener('DOMContentLoaded', renderPublicReviews);
     if (!btn) return;
     btn.disabled = busy;
     btn.textContent = busy ? 'Sending…' : btnLabel;
-  }
-  function openMailApp(username, email, message, rating){
-    const subject = encodeURIComponent('Portfolio feedback from ' + username);
-    const body = encodeURIComponent('From: ' + username + ' (' + email + ')\nRating: ' + rating + '/5\n\n' + message);
-    const a = document.createElement('a');
-    a.href = 'mailto:' + FALLBACK_EMAIL + '?subject=' + subject + '&body=' + body;
-    document.body.appendChild(a); a.click(); a.remove();
   }
 
   form.addEventListener('submit', async (e) => {
@@ -263,59 +211,37 @@ document.addEventListener('DOMContentLoaded', renderPublicReviews);
     }
     if (bot && bot.checked){ form.reset(); return; }
 
-    // Save to localStorage for the sidebar and public display
-    const feedbacks = JSON.parse(localStorage.getItem('portfolioFeedbacks') || '[]');
-    feedbacks.push({ username, email, message, rating: parseInt(rating), date: new Date().toISOString() });
-    localStorage.setItem('portfolioFeedbacks', JSON.stringify(feedbacks));
-    
-    // Instantly update the reviews section at the bottom
-    renderPublicReviews(); 
-
-    if (!configured){
-      console.warn('Contact form: FEEDBACK_ACCESS_KEY is not set, falling back to email app.');
-      setStatus('Opening your email app to send this message…', 'ok');
-      openMailApp(username, email, message, rating);
-      form.reset();
-      document.querySelectorAll('.star').forEach(s => s.classList.remove('active'));
-      document.getElementById('cRating').value = '0';
+    if (!window.firebaseDB) {
+      setStatus('Database not loaded. Please refresh the page.', 'err');
       return;
     }
 
     setBusy(true);
     setStatus('Sending your feedback…');
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
+
+    const { collection, addDoc, db } = window.firebaseDB;
+
     try {
-      const res = await fetch(FEEDBACK_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          access_key: FEEDBACK_ACCESS_KEY,
-          subject: 'Portfolio feedback from ' + username,
-          from_name: username,
-          username: username,
-          email: email,
-          message: message,
-          rating: rating,
-          botcheck: ''
-        }),
-        signal: ctrl.signal
+      await addDoc(collection(db, "feedback"), {
+        username: username,
+        email: email,
+        message: message,
+        rating: parseInt(rating),
+        date: new Date()
       });
-      let data = {};
-      try { data = await res.json(); } catch (_) {}
-      if (res.ok && data.success){
-        setStatus('Thank you, ' + username + '! Your feedback was sent.', 'ok');
-        form.reset();
-        document.querySelectorAll('.star').forEach(s => s.classList.remove('active'));
-        document.getElementById('cRating').value = '0';
-      } else {
-        throw new Error((data && data.message) || ('HTTP ' + res.status));
-      }
+      
+      setStatus('Thank you, ' + username + '! Your feedback was sent.', 'ok');
+      form.reset();
+      document.querySelectorAll('.star').forEach(s => s.classList.remove('active'));
+      document.getElementById('cRating').value = '0';
+      
+      // I-refresh ang public reviews pagkatapos ng 1 segundo
+      setTimeout(renderPublicReviews, 1000); 
+      
     } catch (err) {
       console.error('Contact form error:', err);
       setStatus('Sorry, your feedback could not be sent right now. Please try again later.', 'err');
     } finally {
-      clearTimeout(timer);
       setBusy(false);
     }
   });

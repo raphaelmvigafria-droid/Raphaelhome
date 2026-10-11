@@ -87,7 +87,7 @@
 
   <section class="content-sec">
     <div class="section-head">
-      <div class="section-label">02 — About</div>
+      <div class="section-label">01 — About</div>
       <h2>A little <span class="grad-1">about me</span></h2>
     </div>
 
@@ -335,7 +335,7 @@
 
   <section class="content-sec" id="contact" style="border-bottom:none;">
     <div class="section-head">
-      <div class="section-label">08 — Contact</div>
+      <div class="section-label">08 — Feed</div>
       <h2>Let's <span class="grad-2">connect</span></h2>
       <p>Open to collaborations, projects, and opportunities.</p>
     </div>
@@ -351,7 +351,6 @@
           <input type="email" id="cEmail" name="email" placeholder="you@example.com" autocomplete="email" maxlength="120" required>
         </div>
         
-        <!-- RATING SECTION -->
         <div class="field">
           <label>Rating</label>
           <div class="rating-container" id="ratingContainer">
@@ -363,7 +362,6 @@
           </div>
           <input type="hidden" id="cRating" name="rating" value="0">
         </div>
-        <!-- END RATING SECTION -->
 
         <div class="field">
           <label for="cMsg">Message</label>
@@ -376,8 +374,18 @@
     </div>
   </section>
 
-</div> <!-- close container -->
+  <section class="content-sec" id="reviews-display" style="border-bottom:none;">
+    <div class="section-head">
+      <div class="section-label">09 — Reviews</div>
+      <h2>What people <span class="grad-2">say</span></h2>
+      <p>Public feedback and ratings from visitors.</p>
+    </div>
+    <div class="reviews-grid" id="publicReviewsList">
+      <p class="no-reviews-msg">No reviews yet. Be the first to leave one!</p>
+    </div>
+  </section>
 
+</div>
 <footer>
   <div class="footer-inner">
     <p>© 2026 <span class="name">Raphael Manon-og Vigafria</span> — BSIT 3rd Year Student</p>
@@ -386,22 +394,6 @@
 </footer>
 
 <button class="back-top" id="backTop" title="Back to top">↑</button>
-
-<!-- FEEDBACK SIDEBAR -->
-<button class="open-fb-btn" id="openSidebarBtn">💬 Reviews</button>
-<div class="feedback-sidebar" id="feedbackSidebar">
-  <div class="fb-header">
-    <h3>Feedback & Ratings</h3>
-    <div class="fb-controls">
-      <button id="switchSideBtn" title="Switch Side (Left/Right)">↔</button>
-      <button id="closeSidebarBtn" title="Close">×</button>
-    </div>
-  </div>
-  <div class="fb-list" id="fbList">
-    <p class="no-fb">No feedback yet. Be the first to leave one!</p>
-  </div>
-</div>
-<!-- END FEEDBACK SIDEBAR -->
 
 <div id="smGallery" class="sm-gallery">
   <div class="sm-gallery-inner">
@@ -439,6 +431,35 @@
   </div>
 </div>
 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  // ⚠️ PALITAN ITO NG TOTOONG FIREBASE CONFIG MO ⚠️
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.firebaseDB = {
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    limit,
+    db
+  };
+</script>
+
+<!-- Your existing script.js -->
 <script src="script.js"></script>
 </body>
 </html>
